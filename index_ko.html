@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>허벌리스트 캣의 비밀 정원</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#1a1508; display:flex; flex-direction:column; align-items:center; font-family:'Nanum Myeongjo',serif; }
+
+    /* 상단 HUD */
+    #hud {
+      width:100%;
+      background:rgba(20,15,5,.85);
+      border-bottom:2px solid #8B6914;
+      padding:8px 12px;
+      display:flex; justify-content:space-between; align-items:center;
+      position:sticky; top:0; z-index:10;
+    }
+    #hud .res { display:flex; gap:10px; align-items:center; font-size:.8rem; color:#f0d080; }
+    #hud .res span { background:rgba(0,0,0,.3); padding:3px 8px; border-radius:10px; border:1px solid rgba(180,130,50,.4); }
+    #day-btn {
+      padding:5px 12px; border-radius:12px;
+      border:1px solid #8B6914; background:rgba(139,105,20,.2);
+      color:#f0d080; font-size:.75rem; cursor:pointer;
+    }
+    #night-toggle {
+      padding:5px 12px; border-radius:12px;
+      border:1px solid #4a6a9a; background:rgba(40,60,100,.3);
+      color:#a0c0ff; font-size:.75rem; cursor:pointer;
+    }
+
+    /* 지도 */
+    #map-wrap {
+      position:relative; width:100%;
+    }
+    #map-img { width:100%; display:block; }
+    #map-night { width:100%; display:none; position:absolute; top:0; left:0; }
+
+    /* 클릭 영역 */
+    .zone {
+      position:absolute; cursor:pointer;
+      border-radius:8px; transition:all .2s;
+    }
+    .zone:hover { background:rgba(255,220,100,.15); box-shadow:0 0 12px rgba(255,200,50,.3); }
+    .zone.locked { cursor:default; }
+    .zone.locked:hover { background:rgba(0,0,0,.2); box-shadow:none; }
+
+/* 자물쇠 표시 */
+.lock-badge {
+    display: none;
+}
+
+@keyframes cloudDrift {
+    0%   { transform: translate(0px, 0px); }
+    25%  { transform: translate(3px, -2px); }
+    50%  { transform: translate(5px, 1px); }
+    75%  { transform: translate(2px, 3px); }
+    100% { transform: translate(0px, 0px); }
+}
+
+/* PURR-FOREST */
+#z-forest::after {
+    content: '';
+    position: absolute;
+    inset: -40% -80% -40% -70%;
+    background: url('image/cloud/cloud_forest.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* VELVET MOSS HILLS */
+#z-hills::after {
+    content: '';
+    position: absolute;
+    inset: -20% -50% -50% -50%;
+    background: url('image/cloud/cloud_moss.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* SCRATCH-POST LOOKOUT */
+#z-lookout::after {
+    content: '';
+    position: absolute;
+    inset: 0% -50% -50% -50%;
+    background: url('image/cloud/cloud_lookout.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* WHISKER SENSE GARDEN */
+#z-whisker::after {
+    content: '';
+    position: absolute;
+    inset: -80% -50% -50% -50%;
+    background: url('image/cloud/cloud_whisker.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* TAIL-WAG MUSHROOM PATCH */
+#z-mushroom::after {
+    content: '';
+    position: absolute;
+    inset: -100% -30% -80% -50%;
+    background: url('image/cloud/cloud_mushroom.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* DREAMING BLOOM-BEDS */
+#z-bloom::after {
+    content: '';
+    position: absolute;
+    inset: -110% -150% -140% -180%;
+    background: url('image/cloud/cloud_bloom.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+#z-pond::after {
+    content: '';
+    position: absolute;
+    inset: 0 -30% -30% -30%;
+    background: url('image/cloud/cloud_lagon.png') center/contain no-repeat;
+    pointer-events: none;
+    transition: opacity 1.5s ease;
+    z-index: 2;
+    animation: cloudDrift 5s ease-in-out infinite;
+}
+
+/* 해금 시 안개 사라짐 */
+[id^="z-"]::after {
+    opacity: 0.75;
+}
+.zone:not(.locked)::after {
+    opacity: 0;
+    transition: opacity 1.5s ease;
+}
+.hotspot {
+    border-radius: 8px;
+    transition: background 0.3s ease;
+}
+.hotspot:hover {
+    background: rgba(255,255,255,0.1);
+}
+.hotspot-label {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    color: #f0d080;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.hotspot:hover .hotspot-label {
+    opacity: 1;
+}
+    /* 하단 메시지 */
+    #msg-bar {
+      width:100%;
+      background:rgba(20,15,5,.9);
+      border-top:1px solid #8B6914;
+      padding:8px 14px;
+      font-size:.8rem; color:#c8a060;
+      min-height:36px;
+    }
+
+    /* 오두막 팝업 */
+    #cottage-popup {
+      display:none; position:fixed; inset:0; z-index:100;
+      background:rgba(0,0,0,.0); backdrop-filter:blur(2px);
+      align-items:center; justify-content:center;
+    }
+    #cottage-popup.show { display:flex; }
+    .popup-box {
+      background:#1a1205; border:2px solid #8B6914;
+      border-radius:16px; padding:20px;
+      width:90%; max-width:360px;
+    }
+    .popup-title { color:#f0d080; font-size:1.1rem; text-align:center; margin-bottom:16px; }
+    .popup-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .popup-btn {
+      padding:12px; border-radius:10px;
+      border:1px solid rgba(180,130,50,.4);
+      background:rgba(180,130,50,.1);
+      color:#d4a830; font-size:.85rem;
+      cursor:pointer; text-align:center;
+    }
+    .popup-btn:hover { background:rgba(180,130,50,.25); }
+    .popup-close {
+      width:100%; margin-top:12px; padding:10px;
+      border-radius:10px; border:1px solid #555;
+      background:rgba(80,60,20,.2); color:#888;
+      font-size:.8rem; cursor:pointer;
+    }
+    .herb-card {
+  background:rgba(255,255,255,0.05);
+  border:1.5px solid rgba(180,130,50,.3);
+  border-radius:10px;
+  padding:10px 13px;
+  margin-bottom:8px;
+  overflow:hidden;
+}
+.herb-card.locked { opacity:0.5; }
+.herb-card-header {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.hc-icon { font-size:1.8rem; flex-shrink:0; }
+.hc-main { flex:1; }
+.hc-name { font-size:.88rem; color:#f0d080; font-family:Cinzel,serif; }
+.hc-latin { font-size:.68rem; color:#a0906a; }
+.hc-lock { font-size:.72rem; color:#a0906a; margin-left:auto; flex-shrink:0; }
+  </style>
+  
+</head>
+<body>
+  
+<!-- 인벤토리 팝업 -->
+<div id="inventory-popup" style="display:none;position:fixed;inset:0;z-index:101;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div class="popup-box" style="max-width:420px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+    <div class="popup-title">🎒 인벤토리</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="switchInvTab('herb')" id="itab-herb" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">🌿 약초</button>
+      <button onclick="switchInvTab('potion')" id="itab-potion" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">⚗️ 물약</button>
+      <button onclick="switchInvTab('material')" id="itab-material" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">🧫 재료</button>
+    </div>
+    <div id="isec-herb" style="display:block"><div id="inv-herb-grid"></div></div>
+    <div id="isec-potion" style="display:none"><div id="inv-potion-grid"></div></div>
+    <div id="isec-material" style="display:none"><div id="inv-material-grid"></div></div>
+    <button class="popup-close" onclick="closeInventory()">✕ 닫기</button>
+  </div>
+</div>  
+<!-- 상점 팝업 -->
+<div id="shop-popup" style="display:none;position:fixed;inset:0;z-index:101;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div class="popup-box" style="max-width:420px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+    <div class="popup-title">🛒 캣닙 큰시장</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="switchShopTab('material')" id="stab-material" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">🧴 재료</button>
+      <button onclick="switchShopTab('tool')" id="stab-tool" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">⛏️ 도구</button>
+      <button id="stab-seed" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(100,100,100,.3);background:rgba(100,100,100,.1);color:#666;font-size:.75rem;cursor:not-allowed">🌱 씨앗 🔒</button>
+      <button onclick="switchShopTab('sell')" id="stab-sell" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">💰 판매</button>
+    </div>
+    <div id="ssec-material" style="display:block"><div id="shop-material-grid"></div></div>
+    <div id="ssec-tool" style="display:none"><div id="shop-tool-grid"></div></div>
+    <div id="ssec-sell" style="display:none"><div id="shop-sell-grid"></div></div>
+    <button class="popup-close" onclick="closeShop()">✕ 닫기</button>
+  </div>
+</div>
+<!-- 세계지도 팝업 -->
+<div id="worldmap-popup" style="display:none;position:fixed;inset:0;z-index:102;background:rgba(0,0,0,.85);align-items:center;justify-content:center;">
+  <div style="position:relative;max-width:95vw;max-height:90vh;">
+    <img src="image/worldmap.png" style="max-width:100%;max-height:90vh;border-radius:8px;border:2px solid #8B6914;" id="worldmap-img">
+    
+    <!-- 클릭 영역들 -->
+    <div onclick="closeWorldMap();openShop()" title="🛒 캣닙 큰시장" style="position:absolute;left:21%;top:40%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(255,200,50,.15);border:2px solid rgba(255,200,50,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#f0d080" onmouseover="this.style.background='rgba(255,200,50,.35)'" onmouseout="this.style.background='rgba(255,200,50,.15)'">🛒</div>
+
+    <div onclick="closeWorldMap();openSell()" title="🐟 Fish Tale Harbor" style="position:absolute;left:70.5%;top:61%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(100,180,255,.15);border:2px solid rgba(100,180,255,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#a0c0ff" onmouseover="this.style.background='rgba(100,180,255,.35)'" onmouseout="this.style.background='rgba(100,180,255,.15)'">🐟</div>
+
+    <div onclick="closeWorldMap()" title="🏠 비밀정원 (현재 위치)" style="position:absolute;left:83.8%;top:32%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(100,200,100,.15);border:2px solid rgba(100,200,100,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#a0d080" onmouseover="this.style.background='rgba(100,200,100,.35)'" onmouseout="this.style.background='rgba(100,200,100,.15)'">🏠</div>
+
+    <div onclick="closeWorldMap()" title="🌲 Purr-Forest" style="position:absolute;left:66.9%;top:31%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(50,150,80,.15);border:2px solid rgba(50,150,80,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#80c080" onmouseover="this.style.background='rgba(50,150,80,.35)'" onmouseout="this.style.background='rgba(50,150,80,.15)'">🌲</div>
+
+    <div onclick="closeWorldMap()" title="🏰 Cat Council Castle" style="position:absolute;left:47%;top:28%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(180,130,50,.15);border:2px solid rgba(180,130,50,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#f0d080" onmouseover="this.style.background='rgba(180,130,50,.35)'" onmouseout="this.style.background='rgba(180,130,50,.15)'">🏰</div>
+
+    <div onclick="closeWorldMap()" title="🌋 Ignis Volcano Island" style="position:absolute;left:64.2%;top:81%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(255,80,50,.15);border:2px solid rgba(255,80,50,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#ff8060" onmouseover="this.style.background='rgba(255,80,50,.35)'" onmouseout="this.style.background='rgba(255,80,50,.15)'">🌋</div>
+
+    <div onclick="closeWorldMap()" title="🏝️ The Floating Paw" style="position:absolute;left:13.8%;top:67%;width:8%;height:8%;cursor:pointer;border-radius:50%;background:rgba(150,200,255,.15);border:2px solid rgba(150,200,255,.4);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#a0c0ff" onmouseover="this.style.background='rgba(150,200,255,.35)'" onmouseout="this.style.background='rgba(150,200,255,.15)'">🏝️</div>
+
+    <button onclick="closeWorldMap()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1rem;">✕</button>
+  </div>
+</div>
+</div>
+<!-- 위스커 미니게임 팝업 -->
+<div id="whisker-minigame-popup" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.9);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(135deg,#0d0820,#1a1035);border:2px solid rgba(120,80,200,.6);border-radius:16px;padding:20px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;box-shadow:0 0 30px rgba(100,60,200,.3)">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:1.1rem;color:#c0a0ff">✦ 위스커 센스 가든 ✦</div>
+      <div style="font-size:.72rem;color:#9080c0;margin-top:4px">수염 감지 스코프 가동 중...</div>
+    </div>
+    <div id="whisker-game-content"></div>
+  </div>
+</div>
+<!-- 꽃밭 미니게임 팝업 -->
+<div id="petal-minigame-popup" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(135deg,#1a0528,#2d0f40);border:2px solid rgba(180,100,220,.6);border-radius:16px;padding:20px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;box-shadow:0 0 30px rgba(150,80,200,.3)">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:1.1rem;color:#d0a0e0">🌸 꿈의 향기 추출</div>
+      <div style="font-size:.72rem;color:#a080b0;margin-top:4px">꿈꾸는 꽃밭</div>
+    </div>
+    <div id="petal-game-content"></div>
+  </div>
+</div>
+<!-- 수초 미니게임 팝업 -->
+<div id="pond-minigame-popup" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.9);backdrop-filter:blur(8px);align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(135deg,#051020,#0a2035);border:2px solid rgba(80,150,200,.6);border-radius:16px;padding:20px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;box-shadow:0 0 30px rgba(40,100,200,.3)">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:1.1rem;color:#80c0d0">✂️ 수중 태엽 가위 작업</div>
+      <div style="font-size:.72rem;color:#6090a0;margin-top:4px">달빛 유혹 석호</div>
+    </div>
+    <div id="pond-game-content"></div>
+  </div>
+</div>
+<!-- 버섯 미니게임 팝업 -->
+<div id="shroom-minigame-popup" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
+  <div style="background:#1a1205;border:2px solid #8B6914;border-radius:16px;padding:20px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:1.1rem;color:#f0d080">🍄 버섯 교감 채집</div>
+      <div style="font-size:.72rem;color:#a0906a;margin-top:4px">꼬리 살랑 버섯밭</div>
+    </div>
+    <div id="shroom-game-content"></div>
+  </div>
+</div>
+<!-- 이끼 미니게임 팝업 -->
+<div id="moss-minigame-popup" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);align-items:center;justify-content:center;">
+  <div style="background:#1a1205;border:2px solid #8B6914;border-radius:16px;padding:20px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:1.1rem;color:#f0d080">🌿 스팀 이끼 채집</div>
+      <div id="moss-phase-indicator" style="font-size:.72rem;color:#a0906a;margin-top:4px">마나 증기 흡입기 가동 중...</div>
+    </div>
+    <div id="moss-game-content"></div>
+  </div>
+</div>
+<!-- 퀘스트 팝업 -->
+<div id="quest-popup" style="display:none;position:fixed;inset:0;z-index:101;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div class="popup-box" style="max-width:420px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+    <div class="popup-title">📋 퀘스트</div>
+    <div id="quest-list"></div>
+    <button class="popup-close" onclick="closeQuests()">✕ 닫기</button>
+  </div>
+</div>
+<!-- 도감 팝업 -->
+<div id="codex-popup" style="display:none;position:fixed;inset:0;z-index:101;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div class="popup-box" style="max-width:420px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+    <div class="popup-title">📖 도감</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="switchCodexTab('herb')" id="ctab-herb" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer"><img src="guidebook/herb.png" style="width:18px;height:18px;vertical-align:middle;"> 약초</button>
+      <button onclick="switchCodexTab('potion')" id="ctab-potion" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer"><img src="guidebook/potions.png" style="width:18px;height:18px;vertical-align:middle;"> 물약</button>
+      <button onclick="switchCodexTab('note')" id="ctab-note" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer"><img src="guidebook/reserch.png" style="width:18px;height:18px;vertical-align:middle;"> 연구노트</button>
+    </div>
+    <div id="csec-herb" style="display:block">
+      <div id="herb-grid"></div>
+      <div id="herb-night-sec"></div>
+      <div id="herb-season-sec"></div>
+    </div>
+    <div id="csec-potion" style="display:none">
+      <div id="potion-codex-grid"></div>
+    </div>
+    <div id="csec-note" style="display:none">
+      <div id="research-notes-grid"></div>
+    </div>
+    <button class="popup-close" onclick="closeCodex()">✕ 닫기</button>
+  </div>
+</div>
+<!-- HUD -->
+<div id="hud">
+  <div class="res">
+    <span>🌿 <b id="h-herb">0</b></span>
+    <span>🪷 <b id="h-lotus">0</b></span>
+    <span>🍄 <b id="h-shroom">0</b></span>
+    <span>🪙 <b id="h-coin">0</b></span>
+  </div>
+    <button onclick="openSettings()" style="padding:5px 12px;border-radius:12px;border:1px solid #6a4a1a;background:rgba(100,70,20,.3);color:#d4a830;font-size:.75rem;cursor:pointer">⚙️</button>
+  <div style="display:flex;gap:6px">
+    <button id="night-toggle" onclick="toggleNight()">🌙 밤</button>
+    <button id="day-btn" onclick="nextDay()">☀️ Day <span id="h-day">1</span></button>
+    <button id="worldmap-btn" onclick="openWorldMap()" style="padding:5px 12px;border-radius:12px;border:1px solid #6a4a1a;background:rgba(100,70,20,.3);color:#d4a830;font-size:.75rem;cursor:pointer">🗺️ 지도</button>
+  </div>
+</div>
+
+<!-- 지도 -->
+<div id="map-wrap">
+  <img id="map-img" src="image/map2.png" alt="정원 지도">
+  <img id="map-img2" src="" alt="" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 0.8s ease;">
+  <!-- 공방 핫스팟 -->
+<div id="workshop-hotspots" style="display:none;position:absolute;inset:0;">
+    <!-- 연금술 -->
+    <div onclick="openAlchemy()" style="position:absolute;left:30%;top:25%;width:35%;height:50%;cursor:pointer;" class="hotspot">
+        <div class="hotspot-label">🧪 연금술</div>
+    </div>
+    <!-- 인벤토리 -->
+    <div onclick="openInventory()" style="position:absolute;left:72%;top:30%;width:28%;height:50%;cursor:pointer;" class="hotspot">
+        <div class="hotspot-label">📦 인벤토리</div>
+    </div>
+    <!-- 퀘스트 -->
+    <div onclick="openQuests()" style="position:absolute;left:0%;top:30%;width:25%;height:50%;cursor:pointer;" class="hotspot">
+        <div class="hotspot-label">📜 퀘스트</div>
+    </div>
+    <!-- 도감 -->
+    <div onclick="openCodex()" style="position:absolute;left:15%;top:75%;width:60%;height:25%;cursor:pointer;" class="hotspot">
+        <div class="hotspot-label">📖 도감</div>
+    </div>
+    <!-- Garden 나가기 -->
+<div onclick="closeCottage()" style="position:absolute;left:55%;top:5%;width:25%;height:15%;cursor:pointer;" class="hotspot">
+    <div class="hotspot-label">← Garden</div>
+</div>
+</div>
+
+</div>
+  <!-- 구역 클릭 영역 -->
+  <!-- 꽃밭 -->
+  <div class="zone locked" id="z-bloom" style="left:8%;top:50%;width:22%;height:18%" onclick="clickZone('bloom')">
+  <div class="lock-badge" id="lb-bloom">🔒 Day 2</div>
+</div>
+  <!-- 연못 -->
+  <div class="zone locked" id="z-pond" style="left:25%;top:35%;width:25%;height:13%" onclick="clickZone('pond')">
+  <div class="lock-badge" id="lb-pond">🔒 Day 2</div>
+</div>
+
+  <!-- 숲 -->
+  <div class="zone locked" id="z-forest" style="left:0%;top:22%;width:20%;height:20%" onclick="clickZone('forest')">
+  <div class="lock-badge" id="lb-forest">🔒 Day 3</div>
+</div>
+
+  <!-- 언덕 -->
+ <div class="zone locked" id="z-hills"
+  style="left:28%;top:20%;width:28%;height:10%"
+  onclick="clickZone('hills')">
+  <div class="lock-badge" id="lb-hills">🔒 Day 4</div>
+  </div>
+
+  <!-- 위스커 정원 -->
+  <div class="zone locked" id="z-whisker"
+  style="left:52%;top:28%;width:22%;height:20%"
+  onclick="clickZone('whisker')">
+  <div class="lock-badge" id="lb-whisker">🔒 Day 6</div>
+  </div>
+
+  <!-- 전망대 -->
+  <div class="zone locked" id="z-lookout"
+  style="left:65%;top:18%;width:20%;height:16%"
+  onclick="clickZone('lookout')">
+  <div class="lock-badge" id="lb-lookout">🔒 Day 7</div>
+  </div>
+
+  <!-- 버섯밭 -->
+  <div class="zone locked" id="z-mushroom"
+  style="left:75%;top:33%;width:22%;height:22%"
+  onclick="clickZone('mushroom')">
+  <div class="lock-badge" id="lb-mushroom">🔒 Day 5</div>
+  </div>
+
+  <!-- 오두막 -->
+ <div class="zone" id="z-cottage"
+  style="left:52%;top:45%;width:24%;height:24%"
+  onclick="openCottage()">
+  
+  </div>
+</div>
+<!-- 손님 배너 -->
+<div id="customer-banner" style="display:none;width:100%;background:rgba(20,15,5,.95);border-top:1px solid #8B6914;border-bottom:1px solid #8B6914;padding:10px 14px;"></div>
+<!-- 메시지 바 -->
+<div id="msg-bar">🐱 정원에 오신 걸 환영합니다! 구역을 클릭해 탐험하세요.</div>
+<!-- 스토리 팝업 -->
+<div id="story-popup" style="display:none;position:fixed;inset:0;z-index:200;background:#000;flex-direction:column;">
+  <div id="story-bg" style="position:absolute;inset:0;background-size:cover;background-position:center center;background-repeat:no-repeat;opacity:0.7;"></div>
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;">
+    <div id="story-box" style="background:rgba(10,8,4,.88);border:1.5px solid #8B6914;border-radius:12px;padding:16px 20px;max-width:680px;margin:0 auto;width:100%;">
+      <div id="story-speaker" style="color:#f0d080;font-size:.85rem;font-weight:bold;margin-bottom:8px;"></div>
+      <div id="story-text" style="color:#e8d8b0;font-size:.88rem;line-height:1.8;min-height:80px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+        <div id="story-img-wrap" style="display:none;">
+          <img id="story-img" style="height:80px;object-fit:contain;border-radius:8px;border:1px solid #8B6914;">
+        </div>
+        <button id="story-next-btn" onclick="nextStoryLine()" style="margin-left:auto;padding:8px 20px;border-radius:10px;border:1px solid #8B6914;background:rgba(139,105,20,.2);color:#f0d080;cursor:pointer;font-size:.85rem;">다음 ▶</button>
+        <!-- 선택지 -->
+<div class="prl-choice-area" id="prl-choice" style="display:none;margin-top:12px;">
+  <div style="font-size:.8rem;color:#e8d8b0;text-align:center;margin-bottom:8px">Which calls to you first — the water, or the dream?</div>
+  <div style="font-size:.72rem;color:rgba(200,170,100,.6);text-align:center;margin:-6px 0 12px;font-style:italic">
+    ✦ 첫 번째로 방문할 장소를 선택하세요 ✦
+  </div>
+  <div style="display:flex;gap:10px;justify-content:center;">
+    <button onclick="chooseStart('pond')" id="prl-btn-pond" style="flex:1;padding:12px 8px;border-radius:10px;border:1px solid rgba(180,220,255,.3);background:rgba(80,120,180,.15);color:#e8d8b0;cursor:pointer;font-size:.8rem;text-align:center;">
+      🌊 The Lagoon<br>
+      <span style="font-size:.7rem;color:rgba(180,220,255,.6)">Lunar Lure Lagoon<br>달빛 연꽃이 피는 곳</span>
+    </button>
+    <button onclick="chooseStart('bloom')" id="prl-btn-bloom" style="flex:1;padding:12px 8px;border-radius:10px;border:1px solid rgba(255,200,220,.3);background:rgba(180,80,120,.15);color:#e8d8b0;cursor:pointer;font-size:.8rem;text-align:center;">
+      🌸 The Bloom-Beds<br>
+      <span style="font-size:.7rem;color:rgba(255,200,220,.6)">Dreaming Bloom-Beds<br>꿈꾸는 몽환꽃밭</span>
+    </button>
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- 도감 팝업 -->
+<div id="codex-popup" style="display:none;position:fixed;inset:0;z-index:101;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div class="popup-box" style="max-width:420px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+    <div class="popup-title">📖 도감</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      <button onclick="switchCodexTab('herb')" id="ctab-herb" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">🌿 약초</button>
+      <button onclick="switchCodexTab('potion')" id="ctab-potion" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">⚗️ 물약</button>
+      <button onclick="switchCodexTab('note')" id="ctab-note" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:#f0d080;font-size:.75rem;cursor:pointer">📝 연구노트</button>
+    </div>
+    <div id="csec-herb" style="display:block">
+      <div id="herb-grid"></div>
+      <div id="herb-night-sec"></div>
+      <div id="herb-season-sec"></div>
+    </div>
+    <div id="csec-potion" style="display:none">
+      <div id="potion-codex-grid"></div>
+    </div>
+    <div id="csec-note" style="display:none">
+      <div id="research-notes-grid"></div>
+    </div>
+    <button class="popup-close" onclick="closeCodex()">✕ 닫기</button>
+  </div>
+</div>
+<!-- 오두막 팝업 -->
+<div id="cottage-popup">
+  <div class="popup-box">
+    <div class="popup-title">🏠 연금술사의 오두막</div>
+    <div class="popup-grid">
+  <button class="popup-btn" onclick="openAlchemy()">⚗️ 연금술</button>
+  <button class="popup-btn" onclick="openInventory()">🎒 인벤토리</button>
+  <button class="popup-btn" onclick="openQuests()">📜 퀘스트</button>
+  <button class="popup-btn" onclick="openCodex()">📖 도감</button>
+    </div>
+    <button class="popup-close" onclick="closeCottage()">✕ 닫기</button>
+  </div>
+</div>
+
+<!-- 설정 팝업 -->
+ <div id="settings-popup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.8);align-items:center;justify-content:center;">
+    <div style="background:#1a1205;border:2px solid #8B6914;border-radius:16px;padding:24px;width:80%;max-width:300px;text-align:center">
+        <div style="color:#f0d080;font-size:1rem;margin-bottom:20px">⚙️ Settings</div>
+        <div style="color:#a08040;font-size:.85rem;margin-bottom:12px">Language / 언어</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+            <button onclick="location.href='index2.html'" style="padding:8px 20px;border-radius:10px;border:1px solid #8B6914;background:rgba(180,130,50,.3);color:#f0d080;cursor:pointer;">🇰🇷 한국어</button>
+            <button onclick="location.href='index2_en.html'" style="padding:8px 20px;border-radius:10px;border:1px solid #8B6914;background:rgba(180,130,50,.3);color:#f0d080;cursor:pointer;">🇬🇧 English</button>
+        </div>
+        <button onclick="document.getElementById('settings-popup').style.display='none'" style="padding:8px 24px;border-radius:10px;border:1px solid #555;background:rgba(100,100,100,.2);color:#888;cursor:pointer;">닫기</button>
+    </div>
+</div>
+
+<!-- 연금술 팝업 -->
+<div id="alchemy-popup" style="display:none;position:fixed;inset:0;z-index:101;background:url('image/alchemist_workshop.png') center/cover no-repeat;backdrop-filter:blur(2px);align-items:flex-start;justify-content:center;overflow-y:auto;">
+  <div style="width:90%;max-width:440px;margin:20px auto;max-height:85vh;overflow-y:auto;">
+
+    <!-- 공방 헤더 -->
+    <div style="background:linear-gradient(135deg,#1a0e05,#2a1a08);border:2px solid #8B6914;border-radius:16px 16px 0 0;padding:16px 20px;text-align:center;position:relative">
+      <div style="font-size:1.1rem;color:#f0d080;margin-bottom:4px">⚗️ 연금술사의 공방</div>
+      <div style="font-size:.72rem;color:#a0906a">The Alchemist's Workshop</div>
+      <button onclick="closeAlchemy()" style="position:absolute;top:12px;right:12px;background:rgba(80,60,20,.3);border:1px solid #555;border-radius:50%;width:26px;height:26px;color:#888;cursor:pointer;font-size:.8rem">✕</button>
+    </div>
+
+    <!-- 공방 내부 -->
+    <div style="background:linear-gradient(180deg,#1a0e05,#120a03);border:2px solid #8B6914;border-top:none;border-radius:0 0 16px 16px;padding:16px;background-image:url('image/alchemist_workshop.png');background-size:cover;background-position:center top;">
+
+      <!-- 레시피 목록 -->
+      <div style="background:rgba(10,6,2,0.85);border-radius:10px;padding:12px;margin-top:8px;">
+      <div style="font-size:.75rem;color:#a0906a;margin-bottom:8px">📋 제조 가능한 물약</div>
+     <div id="alchemy-list"></div>
+</div>
+  </div>
+</div>
+
+<!-- 미니게임 스크립트 -->
+<script src="minigame/minigame-pond.js"></script>
+<script src="minigame/minigame-petal.js"></script>
+<script src="minigame/minigame-resin.js"></script>
+<script src="minigame/minigame-honey.js"></script>
+<script src="minigame/minigame-search.js"></script>
+<script src="minigame/minigame-meditation.js"></script>
+
+<script>
+// ── 게임 상태 ──
+var G = {};
+var isNight = false;
+
+function loadG(){
+  try {
+    var s = localStorage.getItem('herbcat_save');
+    if(s) G = JSON.parse(s);
+  } catch(e){}
+  if(!G.herbs) G.herbs = {herb:0,lotus:0,shroom:0,moss:0,resin:0,rare:0};
+  if(!G.coins) G.coins = {bronze:0,silver:0,golden:0};
+  if(!G.day) G.day = 1;
+  if(!G.potionInv) G.potionInv = {healing:0, moon:0, forest:0, dream:0, legendary:0};
+}
+
+function saveG(){
+  localStorage.setItem('herbcat_save', JSON.stringify(G));
+}
+// ── 스토리 시스템 ──
+var STORY_CHAPTERS = {
+  prologue: {
+  bg: 'image/prologue_background.png',
+    lines: [
+      {speaker:'', text:'The mist here lifts slowly. Always slowly...', img:''},
+      {speaker:'Baba', text:'"나는 Baba. 이 정원의 수호자. 그리고 당신은... 어쩐 일로 여기까지 왔나요?"', img:''},
+      {speaker:'', text:'서쪽의 가르릉숲을 지나면 내 오두막이 있습니다. 허브와 밀랍 냄새가 가득한 작은 안식처.', img:''},
+      {speaker:'Baba', text:'"이 토양은 평범한 흙이 아니에요. 기억을 품고 있죠."', img:''},
+      {speaker:'', text:'달빛 라군의 수면은 고요한 밤에 진주빛 파란색으로 빛납니다...', img:''},
+      {speaker:'Baba', text:'"자, 라군이 오늘 밤 고요하네요. 꽃밭도 거의 준비가 됐고요."', img:''},
+      {speaker:'Baba', text:'"물이 먼저인가요, 아니면 꿈이 먼저인가요?"', img:''},
+    ]
+  },
+  chapter1: {
+    bg: '',
+    lines: [
+      {speaker:'', text:'Aethel Cataria의 안개는 그냥 내려앉지 않습니다. 달라붙죠.', img:''},
+      {speaker:'Baba', text:'"습도가 85%군. 내 수염이 축 처진다."', img:''},
+      {speaker:'', text:'오두막 지하에서 이상한 소리가 들려왔습니다.', img:''},
+      {speaker:'', text:'Clink. Clink. Scrape.', img:''},
+      {speaker:'Baba', text:'"...이그니스?"', img:''},
+      {speaker:'', text:'아니었습니다. 지하 금고에서 뭔가가 안쪽에서 긁어대고 있었어요.', img:'internal_structure'},
+      {speaker:'', text:'지하로 내려가자 연금술 에어로 모르타르가 격렬하게 진동하고 있었습니다.', img:'aero_mortar_and_pestle'},
+      {speaker:'Baba', text:'"...소환. 300년 만에."', img:''},
+      {speaker:'', text:'모르타르는 내 동의를 기다리지 않았습니다. 라군을 뚫고 하늘로 솟구쳤어요.', img:''},
+      {speaker:'Aqua', text:'"마스터! 화산이 폭발한 줄 알았어요!"', img:''},
+      {speaker:'Baba', text:'"화산보다는 조금 더 정교하지."', img:''},
+      {speaker:'', text:'마을 광장에는 거대한 기계 심장이 검은 기름을 흘리고 있었습니다.', img:'mechanical_heart'},
+      {speaker:'기계 심장', text:'"살을 내놓아라! 썩지 않는 몸을 내놓아라!"', img:''},
+      {speaker:'Baba', text:'"당신들은 삶을 원하지 않았어요. 절대 부서지지 않는 감옥을 원했죠. 그리고 찾았군요."', img:''},
+      {speaker:'', text:'Baba는 망각의 이슬 한 방울을 기계 심장에 떨어뜨렸습니다.', img:''},
+      {speaker:'', text:'폭발이 아니었습니다. 그저... 잠이 들었어요.', img:''},
+      {speaker:'', text:'돌아오는 길, 모르타르 안에서 이상한 상자를 발견했습니다.', img:'clockwork_heart'},
+      {speaker:'Baba', text:'"죽은 자들은 고요하지만... 그들의 장난감은 언제 멈춰야 하는지 모르는군."', img:''},
+    ]
+  }
+};
+
+var storyCurrent = null;
+var storyLineIndex = 0;
+
+function showStory(chapterId){
+  var chapter = STORY_CHAPTERS[chapterId];
+  if(!chapter) return;
+  storyCurrent = chapter;
+  storyLineIndex = 0;
+  document.getElementById('story-popup').style.display = 'flex';
+  if(chapter.bg){
+    document.getElementById('story-bg').style.backgroundImage = 'url('+chapter.bg+')';
+    document.getElementById('story-bg').style.backgroundSize = 'cover';
+    document.getElementById('story-bg').style.backgroundPosition = 'center center';
+      }
+  renderStoryLine();
+}
+
+function renderStoryLine(){
+  if(!storyCurrent) return;
+  var lines = storyCurrent.lines;
+ if(storyLineIndex >= lines.length){
+  if(storyCurrent === STORY_CHAPTERS.prologue){
+    document.getElementById('story-next-btn').style.display = 'none';
+    document.getElementById('prl-choice').style.display = 'block';
+  } else {
+    closeStory();
+  }
+  return;
+}
+  var line = lines[storyLineIndex];
+  document.getElementById('story-speaker').textContent = line.speaker || '';
+  
+  // 타이핑 효과
+  var textEl = document.getElementById('story-text');
+  textEl.textContent = '';
+  var fullText = line.text;
+  var i = 0;
+  var btn = document.getElementById('story-next-btn');
+  btn.disabled = true;
+  
+  var typing = setInterval(function(){
+    textEl.textContent += fullText[i];
+    i++;
+    if(i >= fullText.length){
+      clearInterval(typing);
+      btn.disabled = false;
+    }
+  }, 30); // 숫자 낮추면 빠름, 높이면 느림
+
+  var imgWrap = document.getElementById('story-img-wrap');
+  var imgEl = document.getElementById('story-img');
+  if(line.img){
+    imgEl.src = 'image/story/' + line.img + '.jpg';
+    imgWrap.style.display = 'block';
+  } else {
+    imgWrap.style.display = 'none';
+  }
+
+  btn.textContent = (storyLineIndex >= lines.length-1) ? '완료 ✓' : '다음 ▶';
+}
+
+function nextStoryLine(){
+  storyLineIndex++;
+  renderStoryLine();
+}
+
+function closeStory(){
+  document.getElementById('story-popup').style.display = 'none';
+  storyCurrent = null;
+  if(!G.storyRead) G.storyRead = {};
+  saveG();
+}
+
+function checkStoryTriggers(){
+  if(!G.storyRead) G.storyRead = {};
+  if(!G.storyRead.prologue){
+    G.storyRead.prologue = true;
+    showStory('prologue');
+  } else if((G.day||1) >= 20 && !G.storyRead.chapter1){
+    G.storyRead.chapter1 = true;
+    showStory('chapter1');
+  }
+}
+// ── 손님 시스템 ──
+var CUSTOMERS = [
+  {id:'fisher', avatar:'🐟', name:'늙은 어부 고양이', title:'항구 마을에서 온 상인',
+    says:['"관절이 요즘 영 시원찮소... 좋은 약 있소?"','"바다 냄새가 배어도 이 약만큼은 믿소."'],
+    orders:[{item:'healing',name:'치유 물약',count:2,reward:{bronze:15},deadline:2},{item:'moon',name:'달빛 물약',count:1,reward:{bronze:12},deadline:3}],
+    specialReward:{herb:{resin:3},msg:'고마소. 바다에서 주운 수지라오.'}},
+  {id:'guild', avatar:'⚔️', name:'길드마스터', title:'모험가 길드 대표',
+    says:['"급하게 해독제가 필요해. 조건은 맞춰주겠어."','"전쟁터에서 이 약이 몇 명을 살렸는지 알아?"'],
+    orders:[{item:'forest',name:'숲의 정수',count:1,reward:{silver:1,bronze:5},deadline:2},{item:'dream',name:'꿈의 물약',count:2,reward:{silver:1},deadline:3}],
+    specialReward:{herb:{moss:4,shroom:3},msg:'"길드 창고에서 꺼냈어. 쓸모있을 거야."'}},
+  {id:'noble', avatar:'👑', name:'귀족 고양이 부인', title:'Aethel Cataria 상류층',
+    says:['"제 딸아이 피부가 너무 창백해서요."','"Baba의 물약이 최고라고요."'],
+    orders:[{item:'moon',name:'달빛 물약',count:1,reward:{silver:1,bronze:8},deadline:3},{item:'legendary',name:'전설의 영약',count:1,reward:{golden:1},deadline:5}],
+    specialReward:{bronze:20,msg:'"사례는 충분히 드리겠어요."'}},
+  {id:'traveler', avatar:'🎒', name:'떠돌이 약초사', title:'먼 지방에서 온 동료',
+    says:['"선배 약초사님 맞죠? 배울 게 있어서 왔어요."','"저도 이런 정원을 만들고 싶어요."'],
+    orders:[{item:'healing',name:'치유 물약',count:3,reward:{bronze:18},deadline:3},{item:'forest',name:'숲의 정수',count:1,reward:{bronze:15},deadline:2}],
+    specialReward:{herb:{lotus:3,herb:5},msg:'"제가 모은 재료예요. 받아주세요!"'}},
+  {id:'mysterious', avatar:'🌑', name:'수상한 고양이', title:'정체불명',
+    says:['"...약 하나만. 이름 묻지 마."','"값은 충분히 치르겠어."'],
+    orders:[{item:'legendary',name:'전설의 영약',count:1,reward:{golden:2},deadline:4},{item:'dream',name:'꿈의 물약',count:2,reward:{silver:2},deadline:2}],
+    specialReward:{golden:1,msg:'"...고마워. 언젠가 도움이 될 거야."'}},
+];
+
+function rollCustomer(){
+  if(G.curCustomer) return;
+  if((G.day||1) < 2) return;
+  if(Math.random() > 0.6) return;
+  var cust = CUSTOMERS[Math.floor(Math.random()*CUSTOMERS.length)];
+  var order = cust.orders[Math.floor(Math.random()*cust.orders.length)];
+  G.curCustomer = {
+    custId:cust.id, item:order.item, name:order.name,
+    count:order.count, reward:order.reward,
+    deadline:(G.day||1)+order.deadline, fulfilled:false,
+  };
+  renderCustomerBanner();
+  saveG();
+}
+
+function renderCustomerBanner(){
+  var banner = document.getElementById('customer-banner');
+  if(!banner) return;
+  if(!G.curCustomer){ banner.style.display='none'; return; }
+  var c = G.curCustomer;
+  var cust = CUSTOMERS.find(function(x){ return x.id===c.custId; });
+  if(!cust){ banner.style.display='none'; return; }
+  var say = cust.says[(G.day||1) % cust.says.length];
+  var remain = c.deadline - (G.day||1);
+  var rewardStr = Object.entries(c.reward)
+    .filter(function(e){ return e[0]!=='herb'; })
+    .map(function(e){ return (e[0]==='bronze'?'🪙':e[0]==='silver'?'🔘':'⭐')+e[1]; }).join(' ');
+  if(!window.G.potionInv) window.G.potionInv={healing:0,moon:0,forest:0,dream:0,legendary:0};
+  var have = (window.G.potionInv&&window.G.potionInv[c.item])||0;
+  var canFulfill = have >= c.count;
+  var icons = {healing:'🧪',moon:'🌙',forest:'🌲',dream:'🌺',legendary:'⭐'};
+  banner.style.display='block';
+  banner.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'
+    +'<span style="font-size:1.8rem">'+cust.avatar+'</span>'
+    +'<div><div style="color:#f0d080;font-size:.85rem;font-weight:bold">'+cust.name+'</div>'
+    +'<div style="color:#a08040;font-size:.72rem">'+cust.title+'</div></div></div>'
+    +'<div style="color:#c8a060;font-size:.8rem;margin-bottom:8px;font-style:italic">'+say+'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+    +'<span style="font-size:1.2rem">'+(icons[c.item]||'🌿')+'</span>'
+    +'<span style="color:#f0d080;font-size:.82rem"><b>'+c.name+'</b> ×'+c.count+'</span>'
+    +'<span style="margin-left:auto;color:#c8a060;font-size:.78rem">'+rewardStr+'</span></div>'
+    +'<div style="font-size:.72rem;color:'+(remain>0?'#80c080':'#e05050')+';margin-bottom:8px">'
+    +'⏰ '+(remain>0?'마감까지 '+remain+'일':'⚠️ 오늘이 마지막!')+'</div>'
+    +'<button onclick="fulfillOrder()" '+(canFulfill?'':'disabled')
+    +' style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(180,130,50,.4);'
+    +'background:rgba(180,130,50,.15);color:'+(canFulfill?'#f0d080':'#888')+';cursor:'+(canFulfill?'pointer':'default')+';font-size:.8rem">'
+    +(canFulfill?'🌿 납품하기 (보유 '+have+'개)':'물약 '+c.count+'개 필요 (보유 '+have+'개)')+'</button>';
+}
+
+function fulfillOrder(){
+  if(!G.curCustomer) return;
+  var c = G.curCustomer;
+  if(!G.potionInv) G.potionInv={healing:0,moon:0,forest:0,dream:0,legendary:0};
+  if((G.potionInv[c.item]||0) < c.count){ msg('❌ 물약이 부족해요!'); return; }
+  G.potionInv[c.item] -= c.count;
+  var cust = CUSTOMERS.find(function(x){ return x.id===c.custId; });
+  Object.entries(c.reward).forEach(function(e){
+    if(e[0]==='herb') Object.entries(e[1]).forEach(function(h){ G.herbs[h[0]]=(G.herbs[h[0]]||0)+h[1]; });
+    else G.coins[e[0]]=(G.coins[e[0]]||0)+e[1];
+  });
+  G.reputation = (G.reputation||0) + ({healing:1,moon:2,forest:2,dream:3,legendary:5}[c.item]||1);
+  var nyVal = (c.reward.bronze||0)+(c.reward.silver||0)*10+(c.reward.golden||0)*100;
+  msg('✅ '+cust.name+' 납품 완료! +'+nyVal+'코인');
+  G.curCustomer = null;
+  renderCustomerBanner();
+  saveG();
+  updateHUD();
+}
+
+function checkCustomerDeadline(){
+  if(!G.curCustomer) return;
+  if((G.day||1) > G.curCustomer.deadline){
+    var cust = CUSTOMERS.find(function(x){ return x.id===G.curCustomer.custId; });
+    msg('😿 '+(cust?cust.name:'손님')+'이(가) 기다리다 돌아갔습니다...');
+    G.reputation = Math.max(0,(G.reputation||0)-2);
+    G.curCustomer = null;
+    renderCustomerBanner();
+    saveG();
+  }
+}
+function updateHUD(){
+  document.getElementById('h-herb').textContent = G.herbs.herb||0;
+  document.getElementById('h-lotus').textContent = G.herbs.aqua||0;
+  document.getElementById('h-shroom').textContent = G.herbs.mushroom||0;
+  document.getElementById('h-coin').textContent = (G.gold||0) + (G.coins.bronze||0) + (G.coins.silver||0)*10 + (G.coins.golden||0)*100;
+  document.getElementById('h-day').textContent = G.day||1;
+  updateZoneLocks();
+}
+
+function updateZoneLocks(){
+   if(G.unlockedZones && G.unlockedZones[0]){
+    var firstZone = G.unlockedZones[0];
+    var fz = document.getElementById('z-'+firstZone);
+    var fb = document.getElementById('lb-'+firstZone);
+    if(fz) fz.classList.remove('locked');
+    if(fb) fb.style.display='none';
+  }
+
+  var locks = {hills:4, whisker:6, lookout:7, mushroom:5};
+  if(G.unlockedZones && G.unlockedZones[0] === 'pond'){
+    locks.bloom = 2;
+    locks.forest = 3;
+  } else if(G.unlockedZones && G.unlockedZones[0] === 'bloom'){
+    locks.pond = 2;
+    locks.forest = 3;
+  }
+  var day = G.day||1;
+
+if(G.unlockedZones && G.unlockedZones[0] === 'pond'){
+  locks.bloom = 2;
+  locks.forest = 3;
+} else if(G.unlockedZones && G.unlockedZones[0] === 'bloom'){
+  locks.pond = 2;
+  locks.forest = 3;
+}
+  Object.entries(locks).forEach(function(e){
+    var id = e[0], unlockDay = e[1];
+    var zone = document.getElementById('z-'+id);
+    var badge = document.getElementById('lb-'+id);
+    if(day >= unlockDay){
+      zone.classList.remove('locked');
+      if(badge) badge.style.display='none';
+    }
+  });
+}
+
+function msg(text){ document.getElementById('msg-bar').textContent = text; }
+
+// ── 구역 클릭 ──
+function clickZone(key){
+  var day = G.day||1;
+  var locks = {hills:4, whisker:6, lookout:7, mushroom:5};
+  if(locks[key] && day < locks[key]){
+    msg('🔒 Day '+locks[key]+' 이후에 해금됩니다!');
+    return;
+  }
+
+  // 야간 채집
+  if(isNight){
+    var nightActions = {
+      bloom:    function(){ openPetalMinigame(function(reward){ onSuccess('moonpetal', reward||1)(); }, onFail); },
+      pond:     function(){ openPondMiniGame(function(reward){ onSuccess('starweed', reward||1)(); }, onFail); },
+      mushroom: function(){ openShroomMiniGame(function(){ onSuccess('glowshroom', 2)(); }, onFail); },
+      hills:    function(){ openMossMiniGame(function(){ onSuccess('nightmoss', 2)(); }, onFail); },
+      forest:   function(){ openResinMinigame(onSuccess('shadowleaf', 1), onFail); },
+      lookout:  function(){ msg('🌙 밤하늘을 관찰합니다...'); },
+    };
+    if(nightActions[key]) {
+      nightActions[key]();
+      return;
+    }
+  }
+
+  // 낮 채집
+  var actions = {
+    bloom:    function(){ openPetalMinigame(function(reward){ onSuccess('herb', reward||1)(); }, onFail); },
+    pond:     function(){ openPondMiniGame(function(reward){ onSuccess('aqua', reward||1)(); }, onFail); },
+    forest:   function(){ openResinMinigame(onSuccess('resin',3), onFail); },
+    hills:    function(){ openMossMiniGame(function(){ onSuccess('moss',3)(); }, onFail); },
+    mushroom: function(){ openShroomMiniGame(function(){ onSuccess('mushroom',3)(); }, onFail); },
+    whisker:  function(){ openWhiskerMiniGame(function(reward){ onSuccess('rare', reward||1)(); }, onFail); },
+    lookout:  function(){ msg('🔭 전망대에서 정원을 관찰합니다...'); },
+  };
+
+  if(actions[key]) actions[key]();
+}
+
+function onSuccess(item, amount){
+  return function(){
+    if(!G.herbs) G.herbs={};
+    G.herbs[item] = (G.herbs[item]||0) + amount;
+    var names = {
+      herb:'몽환 꽃잎초', aqua:'라군 연꽃', mushroom:'살랑 꼬리 버섯',
+      moss:'벨벳 숨결 이끼', resin:'가르릉 나무 수지', rare:'수염 감지초',
+      moonpetal:'달빛꽃잎', starweed:'별빛풀', glowshroom:'발광버섯',
+      nightmoss:'야광이끼', shadowleaf:'그림자잎', lumiresin:'빛수지'
+    };
+    var icon = isNight ? '🌙' : '✨';
+    msg(icon + ' ' + (names[item]||item) + ' ×' + amount + ' 획득!');
+    saveG();
+    updateHUD();
+  };
+}
+
+function onFail(){
+  msg('😿 이번엔 실패했어요...');
+}
+
+// — 지도 페이드 —
+function fadeMapTo(newSrc){
+    var img1 = document.getElementById('map-img');
+    var img2 = document.getElementById('map-img2');
+    img2.src = newSrc;
+    img2.style.opacity = '1';
+    setTimeout(() => {
+        img1.src = newSrc;
+        img2.style.opacity = '0';
+    }, 800);
+}
+
+// ── 낮밤 전환 ──
+function toggleNight(){
+    var mapImg = document.getElementById('map-img');
+    var btn = document.getElementById('night-toggle');
+    
+    setTimeout(() => {
+        isNight = !isNight;
+        if(isNight){
+            btn.textContent = '☀️ 낮';
+            fadeMapTo('image/map2_night.png');
+            msg('🌙 밤이 되었습니다. 야간 전용 약초를 채집할 수 있어요!');
+        } else {
+            btn.textContent = '🌙 밤';
+            fadeMapTo('image/map2.png');
+            msg('🌞 낮이 되었습니다.');
+        }
+    }, 600);
+}
+
+// ── 다음 날 ──
+function nextDay(){
+    if((G.day||1) >= 19){
+        msg('🐱 데모 버전은 Day 19까지입니다!');
+        return;
+    }
+    setTimeout(() => {
+        G.day = (G.day||1) + 1;
+        isNight = false;
+        fadeMapTo('image/map2.png');
+        document.getElementById('night-toggle').textContent = '🌙 밤';
+        checkCustomerDeadline();
+        rollCustomer();
+        msg('🌅 Day ' + G.day + ' 시작!');
+        saveG();
+        updateHUD();
+        checkStoryTriggers();
+    }, 800);
+}
+
+// ── 오두막 ──
+function openCottage(){
+    document.querySelectorAll('.zone').forEach(z => z.style.pointerEvents = 'none');
+    document.querySelectorAll('[id^="z-"]').forEach(z => z.style.display = 'none'); // 추가
+    var mapWrap = document.getElementById('map-wrap');
+    mapWrap.style.transition = 'opacity 0.6s ease';
+    mapWrap.style.opacity = '0';
+    setTimeout(() => {
+        mapWrap.style.backgroundImage = "url('image/alchemist_workshop.png')";
+        mapWrap.style.backgroundSize = 'cover';
+        mapWrap.style.backgroundPosition = 'center';
+        document.getElementById('map-img').style.opacity = '0';
+        document.getElementById('map-img2').style.opacity = '0';
+        mapWrap.style.opacity = '1';
+        document.getElementById('workshop-hotspots').style.display = 'block';
+    }, 600);
+}
+
+function closeCottage(){
+    document.getElementById('workshop-hotspots').style.display = 'none';
+    var mapWrap = document.getElementById('map-wrap');
+    mapWrap.style.transition = 'opacity 0.6s ease';
+    mapWrap.style.opacity = '0';
+    setTimeout(() => {
+        mapWrap.style.backgroundImage = '';
+        document.getElementById('map-img').style.opacity = '1';
+        document.getElementById('map-img2').style.opacity = '0';
+        mapWrap.style.opacity = '1';
+        document.querySelectorAll('.zone').forEach(z => z.style.pointerEvents = 'auto');
+        document.querySelectorAll('[id^="z-"]').forEach(z => z.style.display = 'block'); // 추가
+    }, 600);
+}
+
+var RECIPES = [
+  {id:'healing', name:'치유 물약', icon:'🧪', need:{herb:3}, reward:{bronze:5}},
+  {id:'moon',    name:'달빛 물약', icon:'🌙', need:{aqua:2, moss:1}, reward:{silver:1}},
+  {id:'forest',  name:'숲의 정수', icon:'🌲', need:{resin:2, mushroom:2}, reward:{silver:1, bronze:2}},
+  {id:'dream',   name:'꿈의 물약', icon:'🌺', need:{herb:2, aqua:1, mushroom:1}, reward:{silver:1, bronze:5}},
+  {id:'legendary', name:'전설의 영약', icon:'⭐', need:{rare:1, herb:1, aqua:1, mushroom:1, moss:1, resin:1}, reward:{golden:1}},
+];
+
+var HERB_NAMES = {herb:'약초', lotus:'수초', aqua:'수초', shroom:'버섯', mushroom:'버섯', moss:'이끼', resin:'수지', rare:'희귀초', petal:'꽃잎', honey:'꿀'};
+
+
+function openAlchemy(){
+    document.getElementById('workshop-hotspots').style.display = 'none';
+    var list = document.getElementById('alchemy-list');
+    list.innerHTML = '';
+
+  RECIPES.forEach(function(R){
+    var canMake = Object.entries(R.need).every(function(e){ return (G.herbs[e[0]]||0) >= e[1]; });
+    var needStr = Object.entries(R.need).map(function(e){ return HERB_NAMES[e[0]]+'×'+e[1]; }).join(', ');
+    var rewardStr = [];
+    if(R.reward.bronze) rewardStr.push('🪙'+R.reward.bronze);
+    if(R.reward.silver) rewardStr.push('🔘'+R.reward.silver);
+    if(R.reward.golden) rewardStr.push('⭐'+R.reward.golden);
+
+    var card = document.createElement('div');
+    card.style.cssText = 'padding:12px;border-radius:10px;border:1px solid rgba(180,130,50,'+(canMake?.4:.2)+');background:rgba(180,130,50,'+(canMake?.1:.05)+');margin-bottom:8px;opacity:'+(canMake?1:.5);
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">'
+      +'<span style="font-size:1.5rem">'+R.icon+'</span>'
+      +'<div><div style="color:#f0d080;font-size:.9rem">'+R.name+'</div>'
+      +'<div style="color:#a08040;font-size:.75rem">재료: '+needStr+'</div></div>'
+      +'<div style="margin-left:auto;color:#c8a060;font-size:.75rem">'+rewardStr.join(' ')+'</div>'
+      +'</div>'
+      +'<button onclick="craftPotion(\''+R.id+'\')" '+(canMake?'':'disabled')
+      +' style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(180,130,50,.4);background:rgba(180,130,50,.15);color:'+(canMake?'#f0d080':'#888')+';cursor:'+(canMake?'pointer':'default')+';font-size:.8rem">'
+      +(canMake?'✨ 제조하기':'재료 부족')+'</button>';
+    list.appendChild(card);
+  });
+
+  document.getElementById('alchemy-popup').style.display='flex';
+}
+
+function closeAlchemy(){
+    document.getElementById('alchemy-popup').style.display='none';
+    // 공방 화면이 열려있으면 그대로 유지
+    // 핫스팟이랑 HUD 다시 보이게
+    document.getElementById('workshop-hotspots').style.display = 'block';
+}
+function craftPotion(id) {
+    var R = RECIPES.find(function(r){ return r.id===id; });
+    if(!R) return;
+    var canMake = Object.entries(R.need).every(function(e){ return (G.herbs[e[0]]||0) >= e[1]; });
+    if(!canMake){ msg('❌ 재료가 부족해요!'); return; }
+    openValveGame(R);
+}
+function openValveGame(R) {
+  // 재료 먼저 차감
+  Object.entries(R.need).forEach(function(e){ G.herbs[e[0]] -= e[1]; });
+
+  var popup = document.createElement('div');
+  popup.id = 'valve-popup';
+  popup.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;';
+
+  var pressure = 50;
+  var pressing = false;
+  var successTime = 0;
+  var interval;
+
+  popup.innerHTML = '<div style="background:linear-gradient(135deg,#1a0e05,#2a1a08);border:2px solid #8B6914;border-radius:16px;padding:24px;width:90%;max-width:360px;text-align:center">'
+    + '<div style="font-size:.9rem;color:#f0d080;margin-bottom:4px">⚗️ ' + R.name + ' 제조 중</div>'
+    + '<div style="font-size:.72rem;color:#a0906a;margin-bottom:16px">밸브를 조절해 압력을 초록 영역에 유지하세요!</div>'
+    + '<div style="font-size:2.5rem;margin-bottom:12px">🫕</div>'
+    + '<div style="margin-bottom:8px">'
+    + '<div style="font-size:.68rem;color:#a0906a;margin-bottom:4px">⚙️ 증기 압력</div>'
+    + '<div style="position:relative;height:24px;background:rgba(0,0,0,.3);border-radius:12px;overflow:hidden;border:1px solid rgba(180,130,50,.3)">'
+    + '<div style="position:absolute;left:35%;width:30%;height:100%;background:rgba(50,200,50,.2);border-left:2px solid #50c050;border-right:2px solid #50c050"></div>'
+    + '<div id="valve-bar" style="position:absolute;top:0;left:50%;width:6px;height:100%;background:#f0d080;border-radius:3px;transform:translateX(-50%)"></div>'
+    + '</div>'
+    + '</div>'
+    + '<div id="valve-progress" style="margin-bottom:16px">'
+    + '<div style="font-size:.68rem;color:#a0906a;margin-bottom:4px">유지 시간</div>'
+    + '<div style="height:8px;background:rgba(0,0,0,.3);border-radius:4px;overflow:hidden;border:1px solid rgba(180,130,50,.3)">'
+    + '<div id="valve-prog-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#f0a030,#80d080);border-radius:4px;transition:width .1s"></div>'
+    + '</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px">'
+    + '<button id="valve-up" style="padding:10px 20px;border-radius:10px;background:rgba(180,130,50,.2);border:1px solid rgba(180,130,50,.4);color:#f0d080;font-size:.85rem;cursor:pointer">🔥 압력 올리기</button>'
+    + '<button id="valve-down" style="padding:10px 20px;border-radius:10px;background:rgba(80,120,180,.2);border:1px solid rgba(80,120,180,.4);color:#a0c0ff;font-size:.85rem;cursor:pointer">💧 압력 내리기</button>'
+    + '</div>'
+    + '<div id="valve-msg" style="font-size:.75rem;color:#a0906a">버튼을 눌러 압력을 조절하세요</div>'
+    + '</div>';
+
+  document.body.appendChild(popup);
+
+  var upBtn = document.getElementById('valve-up');
+  var downBtn = document.getElementById('valve-down');
+
+  upBtn.addEventListener('mousedown', function(){ pressing = 1; });
+  upBtn.addEventListener('touchstart', function(){ pressing = 1; });
+  downBtn.addEventListener('mousedown', function(){ pressing = -1; });
+  downBtn.addEventListener('touchstart', function(){ pressing = -1; });
+  document.addEventListener('mouseup', stopPress);
+  document.addEventListener('touchend', stopPress);
+
+  function stopPress() { pressing = 0; }
+
+  interval = setInterval(function() {
+    if(pressing === 1) pressure = Math.min(100, pressure + 3);
+    else if(pressing === -1) pressure = Math.max(0, pressure - 3);
+    else pressure = Math.max(0, pressure - 0.5);
+
+    var bar = document.getElementById('valve-bar');
+    if(bar) bar.style.left = pressure + '%';
+
+    var inZone = pressure >= 35 && pressure <= 65;
+    if(bar) bar.style.background = inZone ? '#80d080' : '#f06040';
+
+    if(inZone) {
+      successTime = Math.min(100, successTime + 2);
+    } else {
+      successTime = Math.max(0, successTime - 1);
+    }
+
+    var progBar = document.getElementById('valve-prog-bar');
+    if(progBar) progBar.style.width = successTime + '%';
+
+    var msgEl = document.getElementById('valve-msg');
+    if(msgEl) {
+      if(inZone) {
+        msgEl.textContent = '✅ 압력 유지 중... ' + Math.floor(successTime) + '%';
+        msgEl.style.color = '#80d080';
+      } else if(pressure > 65) {
+        msgEl.textContent = '⚠️ 압력이 너무 높아요!';
+        msgEl.style.color = '#f06040';
+      } else {
+        msgEl.textContent = '⚠️ 압력이 너무 낮아요!';
+        msgEl.style.color = '#f0a030';
+      }
+    }
+
+    if(successTime >= 100) {
+      clearInterval(interval);
+      document.removeEventListener('mouseup', stopPress);
+      document.removeEventListener('touchend', stopPress);
+      valveCraftSuccess(R, popup);
+    }
+  }, 50);
+}
+
+function valveCraftSuccess(R, popup) {
+  if(!G.potionInv) G.potionInv = {healing:0,moon:0,forest:0,dream:0,legendary:0};
+  G.potionInv[R.id] = (G.potionInv[R.id]||0) + 1;
+  if(R.reward.bronze) G.coins.bronze = (G.coins.bronze||0) + R.reward.bronze;
+  if(R.reward.silver) G.coins.silver = (G.coins.silver||0) + R.reward.silver;
+  if(R.reward.golden) G.coins.golden = (G.coins.golden||0) + R.reward.golden;
+  saveG();
+  updateHUD();
+  renderCustomerBanner(); 
+
+  var inner = popup.querySelector('div');
+  inner.innerHTML = '<div style="padding:20px;text-align:center">'
+    + '<div style="font-size:3rem;margin-bottom:12px">' + R.icon + '</div>'
+    + '<div style="font-size:1rem;color:#f0d080;margin-bottom:6px">✨ ' + R.name + ' 완성!</div>'
+    + '<div style="font-size:.8rem;color:#a0d080;margin-bottom:4px">증류 장치에서 물약이 뚝 떨어졌습니다!</div>'
+    + '<div style="font-size:.75rem;color:#a0906a;margin-bottom:16px">인벤토리에 추가됐어요</div>'
+    + '<button onclick="document.getElementById(\'valve-popup\').remove();openAlchemy();" style="padding:10px 24px;border-radius:10px;background:rgba(180,130,50,.3);border:1px solid rgba(180,130,50,.5);color:#f0d080;cursor:pointer">확인</button>'
+    + '</div>';
+
+  msg('✨ ' + R.name + ' 제조 완료!');
+}
+function openShop(){ msg('🛒 상점 기능은 준비 중이에요!'); closeCottage(); }
+function openInventory(){ msg('🎒 인벤토리 기능은 준비 중이에요!'); closeCottage(); }
+function openQuests(){
+    document.getElementById('workshop-hotspots').style.display = 'none';
+    document.getElementById('quest-popup').style.display='flex';
+    renderQuests();
+}
+function closeQuests(){
+    document.getElementById('quest-popup').style.display='none';
+    document.getElementById('workshop-hotspots').style.display = 'block';
+}
+
+function openCodex(){
+    document.getElementById('workshop-hotspots').style.display = 'none';
+    document.getElementById('codex-popup').style.display='flex';
+    switchCodexTab('herb');
+}
+
+function closeCodex(){
+    document.getElementById('codex-popup').style.display='none';
+    document.getElementById('workshop-hotspots').style.display = 'block';
+}
+function openInventory(){
+    document.getElementById('workshop-hotspots').style.display = 'none';
+    document.getElementById('inventory-popup').style.display='flex';
+    switchInvTab('herb');
+    document.querySelector('#inventory-popup .popup-box').scrollTop = 0;
+}
+function closeInventory(){
+    document.getElementById('inventory-popup').style.display='none';
+    document.getElementById('workshop-hotspots').style.display = 'block';
+}
+
+// ── 시작 ──
+loadG();
+checkStoryTriggers();
+rollCustomer();
+renderCustomerBanner();
+updateHUD();
+msg('🐱 ' + (G.charName||'약초사') + '님의 정원에 오신 걸 환영합니다!');
+function openWorldMap(){
+  document.getElementById('worldmap-popup').style.display='flex';
+}
+function closeWorldMap(){
+  document.getElementById('worldmap-popup').style.display='none';
+}
+function openShop(){
+  document.getElementById('shop-popup').style.display='flex';
+  switchShopTab('material');
+  document.querySelector('#shop-popup .popup-box').scrollTop = 0;
+}
+function closeShop(){
+  document.getElementById('shop-popup').style.display='none';
+}
+function chooseStart(loc){
+  document.getElementById('prl-choice').style.display = 'none';
+  document.getElementById('story-popup').style.display = 'none';
+  if(!G.unlockedZones) G.unlockedZones = [];
+  G.unlockedZones.push(loc);
+
+  var selectedZone = document.getElementById('z-'+loc);
+  var selectedBadge = document.getElementById('lb-'+loc);
+  if(selectedZone) selectedZone.classList.remove('locked');
+  if(selectedBadge) selectedBadge.style.display = 'none';
+
+  saveG();
+  updateZoneLocks();
+  msg('✨ 첫 번째 장소가 열렸습니다!');
+}
+function openSettings(){
+    document.getElementById('settings-popup').style.display='flex';
+}
+</script>
+<!-- 변경 후 -->
+<script src="lang/ko.js"></script>
+<script src="codex_system.js"></script>
+<script src="minigame/moss_minigame.js"></script>
+<script src="minigame/mushroom_minigame.js"></script>
+<script src="minigame/whisker_minigame.js"></script>
+</body>
+</html>
